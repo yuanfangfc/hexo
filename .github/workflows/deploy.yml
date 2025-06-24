@@ -1,0 +1,57 @@
+name: Hexo Auto Deploy
+
+on:
+  schedule:
+    - cron: '*/1 * * * *' # 每1分钟自动运行
+  workflow_dispatch:
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          npm install
+          pip install openai requests beautifulsoup4
+
+      - name: Set OpenAI API Key
+        run: echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
+
+      - name: Run auto_post
+        run: pwsh ./auto_post.ps1
+
+      - name: Deploy to GitHub Pages
+        run: |
+          npx hexo deploy
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./public
+          prod: true
+
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: ./public
+          production-deploy: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: 'Auto deploy by GitHub Actions'
+          netlify-auth-token: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          netlify-site-id: ${{ secrets.NETLIFY_SITE_ID }}
